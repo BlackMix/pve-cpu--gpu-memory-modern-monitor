@@ -84,6 +84,12 @@ def check_host():
     if not JS.read_text().endswith('\n'): raise RuntimeError('Unexpected JavaScript file ending; refusing patch.')
 
 
+def known_collector(content):
+    """Only replace byte-identical releases; do not overwrite local edits."""
+    candidates = [SRC/COLLECTOR.name, *sorted((SRC/'legacy').glob('collector-v*.py'))]
+    return any(content == candidate.read_bytes() for candidate in candidates)
+
+
 def service_active():
     return run('systemctl','is-active','--quiet',SERVICE,check=False).returncode==0
 
@@ -149,14 +155,14 @@ def main():
         uninstall=args.action=='uninstall'
         nj,np=plan(j,p,uninstall)
         api_changed=np!=p
+        if UNIT.exists() and UNIT.read_bytes()!=(SRC/UNIT.name).read_bytes():
+            raise RuntimeError('Service unit differs from this release; refusing overwrite/removal.')
+        if COLLECTOR.exists() and not known_collector(COLLECTOR.read_bytes()):
+            raise RuntimeError('Collector differs from this release; refusing overwrite/removal.')
         if args.action=='check':
             print('Patch anchors and existing blocks OK. No files changed.')
             if api_changed: preflight_restart()
             print('PVE service restart required:',api_changed);return
-        if UNIT.exists() and UNIT.read_bytes()!=(SRC/UNIT.name).read_bytes():
-            raise RuntimeError('Service unit differs from this release; refusing overwrite/removal.')
-        if COLLECTOR.exists() and COLLECTOR.read_bytes()!=(SRC/COLLECTOR.name).read_bytes():
-            raise RuntimeError('Collector differs from this release; refusing overwrite/removal.')
         if uninstall and nj==j and np==p and not UNIT.exists() and not COLLECTOR.exists():
             print('Already uninstalled.');return
         if api_changed: preflight_restart()

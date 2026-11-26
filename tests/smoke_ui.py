@@ -8,6 +8,7 @@ with sync_playwright() as p:
     page=browser.new_page(viewport={'width':1600,'height':900})
     errors=[]
     page.on('pageerror',lambda e:errors.append(str(e)))
+    page.on('console',lambda m: print(m.text) if m.type=='error' else None)
     page.set_content('<body style="background:#252525;color:#ddd;font-family:Arial"><main id="root"></main></body>')
     page.evaluate('''() => {
       window.sample={version:1,timestamp:Date.now()/1000,cpu:{model:'Xeon test',cores:22,usage:12,temperatures:[{c:45}],threads:Array.from({length:44},(_,i)=>({id:i,socket:0,core:[0,1,2,3,4,5,8,9,10,11,12,16,17,18,19,20,21,24,25,26,27,28][i%22],usage:i,mhz:2200}))},memory:{total:128*2**30,used:10*2**30,cache:20*2**30,buffers:2*2**30,free:96*2**30,available:116*2**30,swap_used:0,swap_total:8*2**30},gpus:[{name:'RTX 3090',bus:'03:00.0',driver:'test',usage:12,vram_used:20000,vram_total:24576,temp:47,fan:53,power:84,power_limit:350}],gpu_timestamp:1};
@@ -48,8 +49,7 @@ with sync_playwright() as p:
     pts=gpu.locator('polyline').get_attribute('points').split()
     assert [float(pt.split(',')[1]) for pt in pts[-4:]]==[27.2,18.8,10.4,2.84],pts
     page.evaluate('()=>{sample.gpus[0].usage=null;sample.gpus[0].temp=null;sample.gpu_timestamp++}')
-    page.wait_for_function('''document.querySelector('.phm-gpu-card [aria-label="GPU Usage"]').getAttribute("aria-valuetext")==="Unavailable"''')
-    assert bar.evaluate('e=>e.style.getPropertyValue("--phm-load")')=='0%'
+    page.wait_for_function("document.querySelector('.phm-gpu-card').textContent.includes('Not supported') && !document.querySelector('.phm-gpu-card [aria-label=\"GPU Usage\"]')")
     page.wait_for_function('window.panel.getHeight() >= document.querySelector(".phm").scrollHeight')
     # Equal-height cards at desktop width; layout remains responsive on smaller screens.
     page.set_viewport_size({'width':1920,'height':1000})
@@ -61,6 +61,22 @@ with sync_playwright() as p:
     page.set_viewport_size({'width':650,'height':900})
     page.wait_for_function("""() => {const [cpu,ram,gpu]=[...document.querySelectorAll('.phm-grid > .phm-card')].map(e=>e.getBoundingClientRect());return cpu.bottom<=ram.top && ram.bottom<=gpu.top && document.querySelector('.phm-grid').scrollWidth<=document.querySelector('.phm-grid').clientWidth+1}""")
     page.wait_for_function('window.panel.getHeight() >= document.querySelector(".phm").scrollHeight')
+    # Mixed vendor fixtures, translation and hidden card if no hardware.
+    page.evaluate("""() => { sample.gpus.push({vendor:'AMD',name:'Radeon test',bus:'0000:04:00.0',driver:'amdgpu',usage:65,vram_used:100,vram_total:200,temp:50,fan:null,power:70,power_limit:null},{vendor:'Intel',name:'Arc test',bus:'0000:05:00.0',driver:'vfio-pci',passthrough:true});sample.gpu_timestamp++ }""")
+    page.wait_for_function("document.querySelectorAll('.phm-gpu').length===3")
+    assert page.locator('.phm-gpu-brand').all_text_contents()==['NVIDIA GPU','AMD GPU','Intel GPU']
+    assert page.locator('.phm-brand-icon').count()==3
+    assert page.locator('.phm-brand-icon').evaluate_all("icons=>icons.map(e=>e.getAttribute('data-vendor'))")==['NVIDIA','AMD','Intel']
+    assert page.locator('.phm-brand-icon path').count()==3
+    assert 'Not supported' in page.locator('.phm-gpu').last.inner_text()
+    assert '70 W / Not supported' in page.locator('.phm-gpu').nth(1).inner_text()
+    page.evaluate("window.Proxmox={defaultLang:'pt_BR'}")
+    page.wait_for_function("document.querySelector('.phm-cpu').textContent.includes('Núcleo 00')")
+    assert 'Não suportado' in page.locator('.phm-gpu').last.inner_text()
+    assert 'Uso da memória' in page.locator('.phm-memory-card').inner_text()
+    assert 'Uso da GPU' in page.locator('.phm-gpu-card').inner_text()
+    page.evaluate('()=>{sample.gpus=[];sample.gpu_error=null;sample.gpu_timestamp++}')
+    page.wait_for_function("document.querySelector('.phm-no-gpu') && !document.querySelector('.phm-gpu-card')")
     page.evaluate('window.panel.events.destroy()')
     assert not errors,errors
     browser.close()
