@@ -51,6 +51,16 @@ with sync_playwright() as p:
     page.wait_for_function('''document.querySelector('.phm-gpu-card [aria-label="GPU Usage"]').getAttribute("aria-valuetext")==="Unavailable"''')
     assert bar.evaluate('e=>e.style.getPropertyValue("--phm-load")')=='0%'
     page.wait_for_function('window.panel.getHeight() >= document.querySelector(".phm").scrollHeight')
+    # Equal-height cards at desktop width; layout remains responsive on smaller screens.
+    page.set_viewport_size({'width':1920,'height':1000})
+    page.wait_for_function("""() => {const cards=[...document.querySelectorAll('.phm-grid > .phm-card')].map(e=>e.getBoundingClientRect());return cards.length===3 && cards.every(r=>Math.abs(r.top-cards[0].top)<1 && Math.abs(r.bottom-cards[0].bottom)<1)}""")
+    assert page.locator('.phm-memory-details').count()==1
+    assert page.locator('.phm-core').first.evaluate('e=>e.getBoundingClientRect().height') > 65
+    page.set_viewport_size({'width':1100,'height':900})
+    page.wait_for_function("""() => {const [cpu,ram,gpu]=[...document.querySelectorAll('.phm-grid > .phm-card')].map(e=>e.getBoundingClientRect());return cpu.bottom<=ram.top && Math.abs(ram.top-gpu.top)<1 && Math.abs(ram.bottom-gpu.bottom)<1}""")
+    page.set_viewport_size({'width':650,'height':900})
+    page.wait_for_function("""() => {const [cpu,ram,gpu]=[...document.querySelectorAll('.phm-grid > .phm-card')].map(e=>e.getBoundingClientRect());return cpu.bottom<=ram.top && ram.bottom<=gpu.top && document.querySelector('.phm-grid').scrollWidth<=document.querySelector('.phm-grid').clientWidth+1}""")
+    page.wait_for_function('window.panel.getHeight() >= document.querySelector(".phm").scrollHeight')
     page.evaluate('window.panel.events.destroy()')
     assert not errors,errors
     browser.close()

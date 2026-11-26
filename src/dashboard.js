@@ -3,20 +3,23 @@
     'use strict';
     const CSS = `
     .phm {display:flow-root; padding:10px; font-size:12px; line-height:1.4; color:inherit;}
-    .phm-grid {display:grid; grid-template-columns:minmax(0,2fr) minmax(250px,1fr) minmax(250px,1fr); gap:12px; align-items:start;}
-    .phm-card {min-width:0; padding:13px; border:1px solid rgba(128,128,128,.32); border-radius:8px; background:rgba(128,128,128,.045);}
+    .phm-grid {display:grid; grid-template-columns:minmax(0,2fr) minmax(250px,1fr) minmax(250px,1fr); gap:12px; align-items:stretch;}
+    .phm-card {min-width:0; display:flex; flex-direction:column; padding:13px; border:1px solid rgba(128,128,128,.32); border-radius:8px; background:rgba(128,128,128,.045);}
     .phm-head {display:flex; justify-content:space-between; gap:8px; align-items:flex-start; margin-bottom:12px;}
     .phm-title {font-size:14px; font-weight:600; overflow-wrap:anywhere;}
     .phm-sub {opacity:.72; font-size:11px; overflow-wrap:anywhere;}
     .phm-value {font-size:18px; font-weight:600; white-space:nowrap; font-variant-numeric:tabular-nums;}
-    .phm-cores {display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); gap:6px;}
-    .phm-core {border:1px solid rgba(128,128,128,.22); border-radius:5px; padding:6px; min-width:0;}
+    .phm-cores {display:grid; grid-template-columns:repeat(auto-fit,minmax(120px,1fr)); grid-auto-rows:1fr; gap:6px; flex:1 0 auto;}
+    .phm-core {display:flex; flex-direction:column; justify-content:space-between; border:1px solid rgba(128,128,128,.22); border-radius:5px; padding:6px; min-width:0;}
     .phm-core-label {font-size:10px; opacity:.7; margin-bottom:3px;}
     .phm-row {display:flex; align-items:center; justify-content:space-between; gap:10px; margin:5px 0 3px; font-variant-numeric:tabular-nums;}
     .phm-row > span:last-child {white-space:nowrap;}
     .phm-track {height:7px; background:rgba(128,128,128,.20); border-radius:3px; overflow:hidden;}
     .phm-fill {height:100%; border-radius:3px; transition:width .35s ease, background .35s ease;}
     .phm-memory {display:flex; height:18px; border-radius:5px; overflow:hidden; background:rgba(128,128,128,.2); margin:10px 0;}
+    .phm-memory-card .phm-memory {flex-shrink:0; height:20px;}
+    .phm-memory-details {display:flex; flex-direction:column; justify-content:space-evenly; flex:1 0 auto;}
+    .phm-memory-details .phm-row {margin:6px 0 4px;}
     .phm-memory > div {transition:width .35s ease;}
     .phm-dot {display:inline-block; width:8px; height:8px; border-radius:2px; margin-right:6px;}
     .phm-line {border-top:1px solid rgba(128,128,128,.25); margin:10px 0;}
@@ -36,6 +39,7 @@
     .phm-history-head {display:flex; justify-content:space-between; gap:6px; font-size:10px; opacity:.8;}
     .phm-spark {width:100%; height:48px; display:block; margin-top:4px;}
     .phm-gpu-scale {margin-top:9px;}
+    .phm-gpu-card > .phm-note:last-child {margin-top:auto; padding-top:8px;}
     @media(prefers-reduced-motion:reduce){.phm-heat-fill{transition:none;}}
     @media(max-width:1350px){.phm-grid {grid-template-columns:repeat(2,minmax(0,1fr));}.phm-cpu{grid-column:1/-1;}}
     @media(max-width:800px){.phm-grid{grid-template-columns:minmax(0,1fr);}.phm-cpu{grid-column:auto;}}
@@ -81,7 +85,7 @@
     function renderMemory(m) {
         const fields = [['used','Used (excl. Linux cache/buffers)'],['cache','Cache'],['buffers','Buffers'],['free','Free']];
         const segments = fields.map(([k])=>`<div style="width:${clamp(pct(m[k],m.total))}%;background:${colors[k]}"></div>`).join('');
-        return `<div class="phm-card"><div class="phm-head"><div><div class="phm-title">Memory Usage</div><div class="phm-sub">Linux RAM · live breakdown</div></div><div class="phm-value">${gib(m.total)}</div></div><div class="phm-memory" aria-label="RAM breakdown">${segments}</div>${fields.map(([k,n])=>row(`<i class="phm-dot" style="background:${colors[k]}"></i>${n}`,gib(m[k]))).join('')}<div class="phm-line"></div>${row('Available',gib(m.available))}${row('Swap',`${gib(m.swap_used)} / ${gib(m.swap_total)}`)}${valid(m.zfs_arc)?row('ZFS ARC (separate detail)',gib(m.zfs_arc)):''}<div class="phm-note">Available is a kernel estimate, not an extra segment. Cache excludes shared memory. ZFS ARC is not added to total RAM.</div></div>`;
+        return `<div class="phm-card phm-memory-card"><div class="phm-head"><div><div class="phm-title">Memory Usage</div><div class="phm-sub">Linux RAM · live breakdown</div></div><div class="phm-value">${gib(m.total)}</div></div><div class="phm-memory" aria-label="RAM breakdown">${segments}</div><div class="phm-memory-details">${fields.map(([k,n])=>row(`<i class="phm-dot" style="background:${colors[k]}"></i>${n}`,gib(m[k]))).join('')}<div class="phm-line"></div>${row('Available',gib(m.available))}${row('Swap',`${gib(m.swap_used)} / ${gib(m.swap_total)}`)}${valid(m.zfs_arc)?row('ZFS ARC (separate detail)',gib(m.zfs_arc)):''}</div><div class="phm-note">Available is a kernel estimate, not an extra segment. Cache excludes shared memory. ZFS ARC is not added to total RAM.</div></div>`;
     }
     function renderGPU(data, history, panelId) {
         const cards = (data.gpus || []).map((g,index)=>{

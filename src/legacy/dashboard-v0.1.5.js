@@ -25,7 +25,18 @@
     .phm-note {opacity:.72; font-size:11px; margin-top:8px;}
     .phm-status {font-size:11px; margin:0 0 8px; opacity:.8;}
     .phm-gpu + .phm-gpu {border-top:1px solid rgba(128,128,128,.25); padding-top:12px; margin-top:12px;}
-    .phm-spark {width:100%; height:34px; display:block; margin-top:4px;}
+    .phm-gpu-card {background:linear-gradient(145deg,rgba(118,185,0,.075),transparent 48%),rgba(128,128,128,.045);}
+    .phm-gpu-card .phm-title i {color:#76b900; margin-right:5px;}
+    .phm-gpu-metric {margin-top:8px;}
+    .phm-gpu-metric .phm-row {margin:0 0 4px;}
+    .phm-gpu-metric .phm-row > span:last-child {font-weight:600;}
+    .phm-gpu-metric .phm-track {height:9px; border-radius:5px;}
+    .phm-heat-fill {width:100%; height:100%; clip-path:inset(0 calc(100% - var(--phm-load)) 0 0 round 5px); transition:clip-path .35s ease;}
+    .phm-gpu-history {border:1px solid rgba(128,128,128,.23); border-radius:6px; padding:6px 8px; margin-top:8px; background:rgba(128,128,128,.045);}
+    .phm-history-head {display:flex; justify-content:space-between; gap:6px; font-size:10px; opacity:.8;}
+    .phm-spark {width:100%; height:48px; display:block; margin-top:4px;}
+    .phm-gpu-scale {margin-top:9px;}
+    @media(prefers-reduced-motion:reduce){.phm-heat-fill{transition:none;}}
     @media(max-width:1350px){.phm-grid {grid-template-columns:repeat(2,minmax(0,1fr));}.phm-cpu{grid-column:1/-1;}}
     @media(max-width:800px){.phm-grid{grid-template-columns:minmax(0,1fr);}.phm-cpu{grid-column:auto;}}
     @media(prefers-reduced-motion:reduce){.phm-fill,.phm-memory>div{transition:none;}}
@@ -41,7 +52,13 @@
     const unit = (v,u) => valid(v) ? `${v.toFixed(0)} ${u}` : '—';
     const row = (label, val) => `<div class="phm-row"><span>${label}</span><span>${val}</span></div>`;
     const loadColor = v => !valid(v)?'#808080':v>90?'#e05252':v>55?'#f08a32':v>=30?'#e4c246':'#45a66c';
-    const temperatureColor = v => !valid(v)?'#808080':v>=85?'#e05c5c':v>=55?'#d6a43c':'#45a66c';
+    // Fixed GPU scale: the visible fill is clipped, not rescaled, as usage changes.
+    const heatStops = [[0,'#45a66c'],[29,'#45a66c'],[30,'#e4c246'],[54,'#e4c246'],[55,'#f08a32'],[89,'#f08a32'],[90,'#e05252'],[100,'#e05252']];
+    const heatGradient = `linear-gradient(90deg,${heatStops.map(([p,c])=>`${c} ${p}%`).join(',')})`;
+    const heatColor = v => !valid(v)?'#808080':v>=90?'#e05252':v>=55?'#f08a32':v>=30?'#e4c246':'#45a66c';
+    const GPU_TEMP_REFERENCE = 85; // Visual reference only, not a thermal alarm or hardware limit.
+    const heatMetric = (label,value,display) => `<div class="phm-gpu-metric">${row(label,display)}<div class="phm-track" role="progressbar" aria-label="${esc(label)}" aria-valuemin="0" aria-valuemax="100" ${valid(value)?`aria-valuenow="${clamp(value)}"`:'aria-valuetext="Unavailable"'}><div class="phm-heat-fill" style="--phm-load:${clamp(value)}%;background:${heatGradient}"></div></div></div>`;
+    let gpuPanelSequence = 0;
     const bar = (value,color) => `<div class="phm-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" ${valid(value)?`aria-valuenow="${clamp(value)}"`:'aria-valuetext="Unavailable"'}><div class="phm-fill" style="width:${clamp(value)}%;background:${color}"></div></div>`;
     const metric = (label,value,display,color) => row(label,display)+bar(value,color);
     function renderCPU(cpu) {
@@ -66,14 +83,21 @@
         const segments = fields.map(([k])=>`<div style="width:${clamp(pct(m[k],m.total))}%;background:${colors[k]}"></div>`).join('');
         return `<div class="phm-card"><div class="phm-head"><div><div class="phm-title">Memory Usage</div><div class="phm-sub">Linux RAM · live breakdown</div></div><div class="phm-value">${gib(m.total)}</div></div><div class="phm-memory" aria-label="RAM breakdown">${segments}</div>${fields.map(([k,n])=>row(`<i class="phm-dot" style="background:${colors[k]}"></i>${n}`,gib(m[k]))).join('')}<div class="phm-line"></div>${row('Available',gib(m.available))}${row('Swap',`${gib(m.swap_used)} / ${gib(m.swap_total)}`)}${valid(m.zfs_arc)?row('ZFS ARC (separate detail)',gib(m.zfs_arc)):''}<div class="phm-note">Available is a kernel estimate, not an extra segment. Cache excludes shared memory. ZFS ARC is not added to total RAM.</div></div>`;
     }
-    function renderGPU(data, history) {
-        const cards = (data.gpus || []).map(g=>{
-            const series=history.get(g.bus)||[];
-            const points=series.map((v,i)=>`${(i*120/Math.max(1,series.length-1)).toFixed(1)},${(30-clamp(v)*.28).toFixed(1)}`).join(' ');
-            const draw=series.length>1?`<svg class="phm-spark" viewBox="0 0 120 32" preserveAspectRatio="none" aria-label="VRAM recent history"><polyline fill="none" stroke="${colors.gpu}" stroke-width="1.5" vector-effect="non-scaling-stroke" points="${points}"/></svg>`:'';
-            return `<div class="phm-gpu"><div class="phm-title">${esc(g.name)}</div><div class="phm-sub">Driver ${esc(g.driver)} · PCI ${esc(g.bus)}</div>${metric('GPU Usage',g.usage,ptxt(g.usage),colors.gpu)}${metric('VRAM',pct(g.vram_used,g.vram_total),`${mib(g.vram_used)} / ${mib(g.vram_total)}`,colors.gpu)}${draw}${metric('Temperature',g.temp,unit(g.temp,'°C'),temperatureColor(g.temp))}${metric('Fan',g.fan,ptxt(g.fan),'#388bd4')}${metric('Power',pct(g.power,g.power_limit),`${unit(g.power,'W')} / ${unit(g.power_limit,'W')}`,'#d6a43c')}</div>`;
+    function renderGPU(data, history, panelId) {
+        const cards = (data.gpus || []).map((g,index)=>{
+            const series=(history.get(g.bus)||[]).filter(valid);
+            const vram=pct(g.vram_used,g.vram_total);
+            // Color follows the historical Y value, not the latest sample.
+            // Each SVG uses its own ID, even when multiple node panels exist.
+            const gradientId=`phm-heat-${panelId}-${index}`;
+            const points=series.map((v,i)=>`${(i*120/Math.max(1,series.length-1)).toFixed(2)},${(30-clamp(v)*.28).toFixed(2)}`);
+            if(points.length===1)points.push(`120,${(30-clamp(series[0])*.28).toFixed(2)}`);
+            const stops=heatStops.map(([p,c])=>`<stop offset="${p}%" stop-color="${c}"/>`).join('');
+            const draw=points.length?`<svg class="phm-spark" viewBox="0 0 120 32" preserveAspectRatio="none" role="img" aria-label="VRAM recent history, color indicates utilization"><defs><linearGradient id="${gradientId}" gradientUnits="userSpaceOnUse" x1="0" y1="30" x2="0" y2="2">${stops}</linearGradient></defs><path d="M0 30 L${points.join(' L')} L120 30 Z" fill="url(#${gradientId})" opacity=".18"/><polyline fill="none" stroke="url(#${gradientId})" stroke-width="1.8" stroke-linejoin="round" vector-effect="non-scaling-stroke" points="${points.join(' ')}"/></svg>`:`<div class="phm-spark phm-note">Waiting for samples…</div>`;
+            return `<div class="phm-gpu"><div class="phm-title">${esc(g.name)}</div><div class="phm-sub">Driver ${esc(g.driver)} · PCI ${esc(g.bus)}</div>${heatMetric('GPU Usage',g.usage,ptxt(g.usage))}${heatMetric('VRAM',vram,`${mib(g.vram_used)} / ${mib(g.vram_total)}`)}<div class="phm-gpu-history"><div class="phm-history-head"><span>VRAM history · ${series.length}/60</span><span>${ptxt(vram)}</span></div>${draw}</div>${heatMetric('Temperature',pct(g.temp,GPU_TEMP_REFERENCE),unit(g.temp,'°C'))}<div class="phm-gpu-metric">${metric('Fan',g.fan,ptxt(g.fan),'#388bd4')}</div>${heatMetric('Power',pct(g.power,g.power_limit),`${unit(g.power,'W')} / ${unit(g.power_limit,'W')}`)}</div>`;
         }).join('');
-        return `<div class="phm-card"><div class="phm-head"><div><div class="phm-title">NVIDIA GPU</div><div class="phm-sub">Live hardware metrics · ~2 seconds</div></div></div>${cards||`<div class="phm-note">${esc(data.gpu_error||'No NVIDIA GPU available')}</div>`}<div class="phm-note">VRAM history: up to 60 samples in this view, not stored on disk.</div></div>`;
+        const legend=`<div class="phm-legend phm-gpu-scale" aria-label="GPU utilization colors">${[[0,'&lt;30%'],[30,'30–&lt;55%'],[55,'55–&lt;90%'],[90,'≥90%']].map(([v,label])=>`<span><i class="phm-dot" style="background:${heatColor(v)}"></i>${label}</span>`).join('')}</div>`;
+        return `<div class="phm-card phm-gpu-card"><div class="phm-head"><div><div class="phm-title"><i class="fa fa-tachometer" aria-hidden="true"></i>NVIDIA GPU</div><div class="phm-sub">Live hardware metrics · ~2 seconds</div></div></div>${cards||`<div class="phm-note">${esc(data.gpu_error||'No NVIDIA GPU available')}</div>`}${cards?legend:''}<div class="phm-note">Temperature scale: 0–${GPU_TEMP_REFERENCE} °C (visual reference, not a thermal alarm). VRAM history: up to 60 samples in this view, not stored on disk.</div></div>`;
     }
     // Patch matching elements in place so bars animate instead of being recreated every second.
     function morph(a,b) {
@@ -93,6 +117,7 @@
         if(summary.getComponent('phm-live-panel'))return;
         if(!document.getElementById('phm-styles')) {const s=document.createElement('style');s.id='phm-styles';s.textContent=CSS;document.head.appendChild(s);}
         const panel=Ext.create('Ext.panel.Panel', {itemId:'phm-live-panel',title:'Hardware Monitor · Live',height:85,iconCls:'fa fa-tachometer',collapsible:true,margin:'0 5 5 5',bodyPadding:0,html:'<div class="phm"><div class="phm-status">Waiting for hardware monitor…</div><div class="phm-grid"></div></div>'});
+        const panelId=++gpuPanelSequence;
         let timer=null, busy=false, dead=false, lastGPU=null, history=new Map();
         // PHM layout hotfix 0.1.2: ExtJS does not observe manual HTML updates.
         let frame=null, observer=null;
@@ -121,7 +146,7 @@
                         if(!data||data.version!==1||!data.cpu||!data.memory)throw new Error('Invalid snapshot');
                         if(data.gpu_timestamp!==lastGPU){lastGPU=data.gpu_timestamp;(data.gpus||[]).forEach(g=>{const v=pct(g.vram_used,g.vram_total);if(valid(v)){const series=history.get(g.bus)||[];series.push(v);if(series.length>60)series.shift();history.set(g.bus,series);}});}
                         const el=panel.body.dom.querySelector('.phm-grid');if(!el)return;
-                        const template=document.createElement('template');template.innerHTML=`<div class="phm-grid">${renderCPU(data.cpu)}${renderMemory(data.memory)}${renderGPU(data,history)}</div>`;
+                        const template=document.createElement('template');template.innerHTML=`<div class="phm-grid">${renderCPU(data.cpu)}${renderMemory(data.memory)}${renderGPU(data,history,panelId)}</div>`;
                         morph(el,template.content.firstElementChild);
                         status(`Live · ${node} · ${new Date(data.timestamp*1000).toLocaleTimeString()} · CPU/RAM 1s`);
                     } catch(e) {status('Hardware monitor: invalid data · retrying');}
