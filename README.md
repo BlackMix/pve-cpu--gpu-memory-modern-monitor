@@ -1,18 +1,21 @@
 # PVE CPU • GPU • Memory Modern Monitor
 
-![Version](https://img.shields.io/badge/version-0.1.4-blue)
+![Version](https://img.shields.io/badge/version-0.1.7-blue)
 ![Proxmox VE](https://img.shields.io/badge/Proxmox%20VE-9.x-E57000)
 ![Python](https://img.shields.io/badge/Python-3-3776AB)
 ![NVIDIA](https://img.shields.io/badge/NVIDIA-GPU-76B900)
+![AMD](https://img.shields.io/badge/AMD-GPU-ED1C24)
+![Intel](https://img.shields.io/badge/Intel-GPU-0071C5)
+![Languages](https://img.shields.io/badge/Language-PT--BR%20%7C%20EN-blue)
 [![GitHub stars](https://img.shields.io/github/stars/BlackMix/pve-cpu--gpu-memory-modern-monitor)](https://github.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/stargazers)
 
-Real-time hardware monitoring integrated directly into the Proxmox VE **Summary** page. Inspired by the Unraid dashboard, this project provides detailed CPU, RAM, and NVIDIA GPU monitoring without requiring a separate dashboard, Docker, or Grafana.
+Real-time hardware monitoring integrated directly into the Proxmox VE **Summary** page. Inspired by the Unraid dashboard, this project provides detailed CPU, RAM, and NVIDIA, AMD, and Intel GPU monitoring without requiring a separate dashboard, Docker, or Grafana.
 
 ![PVE CPU GPU Memory Modern Monitor — visual demonstration](assets/image.png)
 
 *Illustrative promotional image; the metrics and topology displayed by the plugin depend on the server's actual hardware.*
 
-> **v0.1.4:** All previous fixes for ExtJS integration, panel height, and core numbering are included. No separate hotfixes are required.
+> **v0.1.7:** Automatic NVIDIA, AMD, and Intel detection, embedded SVG vendor logos, multiple GPUs, English and Brazilian Portuguese localization, equal-height responsive cards, and multicolor GPU gradients. All previous UI fixes are included. The readable installer no longer embeds a Base64 archive.
 
 ## Features
 
@@ -40,18 +43,42 @@ Real-time hardware monitoring integrated directly into the Proxmox VE **Summary*
 
 Linux cache is calculated as `Cached + SReclaimable - Shmem`. Available memory is a kernel estimate, not an additional segment of the bar.
 
-### NVIDIA GPU
+### GPU — NVIDIA, AMD, and Intel
 
-- GPU utilization and VRAM usage.
-- Temperature, fan speed, and power consumption.
-- GPU identification, PCI address, and driver version.
-- Support for multiple NVIDIA GPUs detected by `nvidia-smi`.
-- Local VRAM history of up to 60 samples, without writing to disk.
-- Updates approximately every two seconds.
+- GPU utilization, VRAM, temperature, fan speed, and power consumption, when available.
+- Automatic PCI detection of integrated and discrete GPUs, including mixed vendors.
+- Embedded SVG vendor logos; no external icon requests.
+- Passthrough devices using `vfio-pci` or `pci-stub` are detected, but host telemetry may be unavailable.
+- Missing metrics display “Not supported” (or “Não suportado” in Portuguese), rather than a false zero. The GPU card is hidden if no supported vendor is detected.
+- Local VRAM history of up to 60 samples, without disk storage.
+- GPU sampling approximately every two seconds plus collection time; optional Intel tooling can increase the interval.
+- Multicolor gradients for GPU usage, VRAM, temperature, and power; the fan bar remains blue. The VRAM chart preserves historical utilization colors.
+
+| Color | GPU / VRAM / power scale |
+| --- | --- |
+| Green | Below 30% |
+| Yellow | 30% to less than 55% |
+| Orange | 55% to less than 90% |
+| Red | 90% or more |
+
+The temperature visualization uses a 0–85 °C reference scale, not an official thermal safety limit. Power is relative to the limit reported by the driver.
+
+| Metric | NVIDIA | AMD | Intel |
+| --- | --- | --- | --- |
+| PCI detection | Yes | Yes | Yes |
+| Utilization | `nvidia-smi` | `gpu_busy_percent` | `i915`: optional `intel_gpu_top` (busiest engine); `xe`: not implemented |
+| VRAM / history | Driver-dependent | `mem_info_vram_*` | Not implemented in this version |
+| Temperature, power, fan | Driver-dependent | `hwmon`, where available | `hwmon`, where available |
+
+The plugin does not install GPU drivers or infer VRAM from shared system memory. AMD and Intel collection has been tested with simulated data, not physical GPUs.
+
+### Languages
+
+The interface follows the Proxmox language preference (`PVELangCookie` or `Proxmox.defaultLang`). Brazilian Portuguese and English are supported; other languages fall back to English. No Proxmox translation files are modified.
 
 ### Proxmox integration
 
-- Responsive, collapsible panel with automatic height recalculation.
+- Responsive, collapsible panel with automatic height recalculation and equal-height cards within each row.
 - Visual compatibility with light and dark themes.
 - Preserves the original Summary charts and components.
 - Authenticated API requiring the `Sys.Audit` permission on the node.
@@ -63,7 +90,8 @@ Linux cache is calculated as `Cached + SReclaimable - Shmem`. Available memory i
 - Proxmox VE 9.x (developed for the PVE 9.3.1 structure; other versions must pass the compatibility check).
 - `root` access directly on the Proxmox host, not inside an LXC container or VM.
 - Python 3, Perl, systemd, and standard Debian utilities.
-- A working NVIDIA driver and `nvidia-smi` for GPU metrics (optional).
+- Optional GPU drivers and tools: NVIDIA `nvidia-smi`, AMD `amdgpu`, Intel `i915` / `xe` (optional `intel-gpu-tools` for i915 utilization), and `pciutils` for detailed PCI names.
+- Git for the recommended checkout method, or curl for standalone source retrieval.
 - SSH or console access for recovery, if needed.
 
 > [!WARNING]
@@ -71,41 +99,27 @@ Linux cache is calculated as `Cached + SReclaimable - Shmem`. Available memory i
 
 ## Installation
 
-### Recommended method — download and review before running
+### Recommended — review the source before running
 
-On the Proxmox host terminal:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/main/install.sh -o /tmp/phm-install.sh
-```
-
-Verify the source and review the installer before running it as root. Then:
-
-```bash
-bash /tmp/phm-install.sh check
-bash /tmp/phm-install.sh
-```
-
-### Quick installation via GitHub Raw
-
-Only use this method if you trust the content published in the repository:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/main/install.sh | bash
-```
-
-The current installer is self-contained: it includes a compressed payload generated from the project's source files, with an integrity check. This check does not authenticate the script's origin. In production, prefer replacing `main` with a reviewed release tag or commit SHA.
-
-### Local installation
-
-If you prefer to clone the project (requires Git):
+Clone the repository on the Proxmox host (requires Git):
 
 ```bash
 git clone https://github.com/BlackMix/pve-cpu--gpu-memory-modern-monitor.git
 cd pve-cpu--gpu-memory-modern-monitor
-bash install.sh check
-bash install.sh
 ```
+
+Review [`install.sh`](install.sh), [`install.py`](install.py), and the [`src/`](src/) directory before executing anything as root. For reproducible deployments, check out a reviewed release tag or full commit SHA first.
+
+```bash
+bash install.sh check
+bash install.sh install
+```
+
+The installer uses the local source tree and does not need network access in this mode. It does not contain an embedded archive or Base64 payload.
+
+### Standalone launcher
+
+The [readable install.sh](https://github.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/blob/main/install.sh) can also be downloaded separately. If the source tree is not present beside the script, it retrieves a single source archive from the project's GitHub repository. Set `PHM_REF` to a reviewed tag or full commit SHA; the default is `main`. A downloaded launcher does not, by itself, verify the trustworthiness of the downloaded code. Prefer the local checkout method to review all files before running them as root.
 
 ### After installation
 
@@ -113,43 +127,42 @@ Select the desired node in the Proxmox web interface and open **Summary**. Perfo
 
 ## Updating
 
-The same installation command updates previous versions. There is no need to uninstall first or apply the v0.1.2 and v0.1.3 fixes separately.
+From the existing checkout, fetch and review the changes before installing (if using a pinned commit, explicitly select the new reviewed revision instead):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/main/install.sh -o /tmp/phm-install.sh
-bash /tmp/phm-install.sh check
-bash /tmp/phm-install.sh
+git pull --ff-only
+bash install.sh check
+bash install.sh install
 ```
 
-The installer recognizes the original JavaScript blocks from versions 0.1.0 through 0.1.3, as well as the current version. Unrecognized modifications are rejected. If the Perl API has not changed, the `pvedaemon` and `pveproxy` services are not restarted. The collector is also not restarted if its code, service unit, and state are already correct.
+The installer recognizes the original JavaScript blocks from versions 0.1.0 through 0.1.6 and the current version, and the previous collector when byte-identical to the known version. Unknown changes are rejected. No separate hotfixes are required. If the Perl API is unchanged, `pvedaemon` and `pveproxy` are not restarted; the collector is restarted only if necessary.
 
 ## Management
 
-The following commands use the previously downloaded local installer:
+Run these commands from the reviewed project checkout:
 
 | Command | Description |
 | --- | --- |
-| `bash /tmp/phm-install.sh --version` | Display the installer version |
-| `bash /tmp/phm-install.sh check` | Check installation compatibility and safety |
-| `bash /tmp/phm-install.sh status` | Check plugin status |
-| `bash /tmp/phm-install.sh repair` | Reapply patches after a compatible PVE update |
-| `bash /tmp/phm-install.sh activate` | Reload the API after checking the services |
-| `bash /tmp/phm-install.sh uninstall` | Remove the plugin and recognized code blocks |
+| `bash install.sh --version` | Display the installer version |
+| `bash install.sh check` | Check installation compatibility and safety |
+| `bash install.sh status` | Check plugin status |
+| `bash install.sh repair` | Reapply patches after a compatible PVE update |
+| `bash install.sh activate` | Reload the API after checking the services |
+| `bash install.sh uninstall` | Remove the plugin and recognized code blocks |
 
 ### Repair after a Proxmox update
 
-Proxmox updates may overwrite modified files. Patches are not reapplied automatically. Download the installer again and run:
+Proxmox updates may overwrite modified files. Patches are not reapplied automatically. From a reviewed compatible checkout, run:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/main/install.sh -o /tmp/phm-install.sh
-bash /tmp/phm-install.sh check
-bash /tmp/phm-install.sh repair
+bash install.sh check
+bash install.sh repair
 ```
 
 ### Uninstallation
 
 ```bash
-bash /tmp/phm-install.sh uninstall
+bash install.sh uninstall
 ```
 
 Or, if you are already using the local source code:
@@ -190,7 +203,7 @@ systemctl status pvedaemon pveproxy --no-pager
 systemctl list-jobs
 ```
 
-Only run `bash /tmp/phm-install.sh activate` when the host is healthy and no tasks are in progress. UI-only updates do not require restarting PVE services.
+Only run `bash install.sh activate` when the host is healthy and no tasks are in progress. UI-only updates do not require restarting PVE services.
 
 ## Architecture
 
@@ -201,7 +214,7 @@ flowchart TD
     COL[Python 3 collector / systemd] --> JSON
     COL --> CPU[CPU / proc and sysfs]
     COL --> RAM[Memory / proc/meminfo]
-    COL --> GPU[GPU / nvidia-smi]
+    COL --> GPU[GPU / PCI / sysfs / nvidia-smi]
 ```
 
 ## Project structure
@@ -227,10 +240,9 @@ flowchart TD
 
 ## Development
 
-The source code is maintained separately from the embedded payload in `install.sh`. When modifying the code, regenerate the installer before publishing:
+The installer uses the source files directly. No installer generation is necessary after changing the collector or UI. Run the following checks before publishing:
 
 ```bash
-python3 scripts/build-installer.py
 python3 -m unittest discover -s tests -v
 node --check src/dashboard.js
 bash -n install.sh
@@ -244,9 +256,9 @@ python3 tests/smoke_ui.py
 
 ## Compatibility and limitations
 
-This project is experimental and is not an official part of Proxmox VE. Previous fixes have been used on a PVE 9.3.1 host; the consolidated v0.1.4 installer has not yet been fully validated in that environment. Local tests cover Linux metric collection, idempotency, recognition of previous patches, rollback, color thresholds, simulated preflight checks, and Chromium rendering with simulated ExtJS. Compatibility with future versions is not guaranteed.
+This project is experimental and is not an official part of Proxmox VE. Previous fixes have been used on a PVE 9.3.1 host; the latest readable launcher has not yet been validated on a live Proxmox host. Local tests cover Linux metric collection, idempotency, recognition of previous patches, rollback, color thresholds, simulated preflight checks, and Chromium rendering with simulated ExtJS. Compatibility with future versions is not guaranteed.
 
-Technical reference: [proxmox/pve-manager](https://github.com/proxmox/pve-manager) (`Summary.js` and `Nodes.pm`). The project does not depend on PVE-mods.
+Technical reference: [proxmox/pve-manager](https://github.com/proxmox/pve-manager) (`Summary.js` and `Nodes.pm`). The project does not depend on PVE-mods. SVG vendor logos are derived from [Simple Icons](https://github.com/simple-icons/simple-icons). Trademarks belong to their respective owners; no vendor affiliation or endorsement is implied.
 
 ## Contributing
 
