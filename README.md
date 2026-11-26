@@ -6,99 +6,99 @@
 ![NVIDIA](https://img.shields.io/badge/NVIDIA-GPU-76B900)
 [![GitHub stars](https://img.shields.io/github/stars/BlackMix/pve-cpu--gpu-memory-modern-monitor)](https://github.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/stargazers)
 
-Monitoramento de hardware em tempo real, integrado diretamente à tela **Summary** do Proxmox VE. Inspirado no dashboard do Unraid, o projeto oferece uma visão detalhada da CPU, memória RAM e GPU NVIDIA, sem precisar de outro painel, Docker ou Grafana.
+Real-time hardware monitoring integrated directly into the Proxmox VE **Summary** page. Inspired by the Unraid dashboard, this project provides detailed CPU, RAM, and NVIDIA GPU monitoring without requiring a separate dashboard, Docker, or Grafana.
 
-![PVE CPU GPU Memory Modern Monitor — demonstração visual](assets/image.png)
+![PVE CPU GPU Memory Modern Monitor — visual demonstration](assets/image.png)
 
-*Imagem promocional ilustrativa; as métricas e a topologia exibidas pelo plugin dependem do hardware real do servidor.*
+*Illustrative promotional image; the metrics and topology displayed by the plugin depend on the server's actual hardware.*
 
-> **v0.1.4:** todas as correções anteriores de integração ExtJS, altura dos painéis e numeração dos núcleos já estão incluídas. Não é necessário aplicar hotfixes separadamente.
+> **v0.1.4:** All previous fixes for ExtJS integration, panel height, and core numbering are included. No separate hotfixes are required.
 
-## Recursos
+## Features
 
-### CPU — núcleos e threads em tempo real
+### CPU — real-time core and thread monitoring
 
-- Utilização individual de todas as CPUs lógicas, com atualização a cada segundo.
-- Agrupamento das threads por núcleo físico e socket.
-- Numeração visual sequencial (`Core 00`, `Core 01`...), mantendo o identificador físico original no tooltip.
-- Frequência por CPU lógica e temperatura máxima dos sensores disponíveis.
-- Barras de utilização com transições suaves e cores dinâmicas independentes para cada thread.
+- Individual utilization of all logical CPUs, updated every second.
+- Threads grouped by physical core and socket.
+- Sequential display numbering (`Core 00`, `Core 01`, etc.), with the original hardware identifier preserved in the tooltip.
+- Per-logical-CPU clock frequency and the highest temperature reported by available sensors.
+- Utilization bars with smooth transitions and independent dynamic colors for each thread.
 
-| Cor | Utilização da thread |
+| Color | Thread utilization |
 | --- | --- |
-| 🟢 Verde | Abaixo de 30% |
-| 🟡 Amarelo | De 30% a 55%, inclusive |
-| 🟠 Laranja | Acima de 55% até 90%, inclusive |
-| 🔴 Vermelho | Acima de 90% |
+| 🟢 Green | Below 30% |
+| 🟡 Yellow | 30% to 55%, inclusive |
+| 🟠 Orange | Above 55% up to and including 90% |
+| 🔴 Red | Above 90% |
 
-### Memória RAM
+### RAM
 
-- Memória total, utilizada, livre e disponível.
-- Cache Linux, buffers e swap.
-- Barra segmentada para visualizar a distribuição da memória.
-- Cache ZFS ARC exibido separadamente, sem contagem dupla.
+- Total, used, free, and available memory.
+- Linux cache, buffers, and swap.
+- Segmented bar showing memory distribution.
+- ZFS ARC cache displayed separately, without double counting.
 
-O cache Linux é calculado como `Cached + SReclaimable - Shmem`. A memória disponível é uma estimativa do kernel, não um segmento adicional da barra.
+Linux cache is calculated as `Cached + SReclaimable - Shmem`. Available memory is a kernel estimate, not an additional segment of the bar.
 
-### GPU NVIDIA
+### NVIDIA GPU
 
-- Utilização da GPU e memória VRAM.
-- Temperatura, velocidade da ventoinha e consumo de energia.
-- Identificação da GPU, endereço PCI e versão do driver.
-- Suporte a múltiplas GPUs NVIDIA detectadas pelo `nvidia-smi`.
-- Histórico local de VRAM de até 60 amostras, sem armazenamento em disco.
-- Atualização aproximadamente a cada dois segundos.
+- GPU utilization and VRAM usage.
+- Temperature, fan speed, and power consumption.
+- GPU identification, PCI address, and driver version.
+- Support for multiple NVIDIA GPUs detected by `nvidia-smi`.
+- Local VRAM history of up to 60 samples, without writing to disk.
+- Updates approximately every two seconds.
 
-### Integração com o Proxmox
+### Proxmox integration
 
-- Painel responsivo e recolhível, com altura recalculada automaticamente.
-- Compatibilidade visual com os temas claro e escuro.
-- Gráficos e componentes originais do Summary preservados.
-- API autenticada com permissão `Sys.Audit` no nó.
-- Coletor leve em Python 3, gerenciado pelo systemd.
-- Sem portas adicionais, telemetria externa, Docker ou compilação.
+- Responsive, collapsible panel with automatic height recalculation.
+- Visual compatibility with light and dark themes.
+- Preserves the original Summary charts and components.
+- Authenticated API requiring the `Sys.Audit` permission on the node.
+- Lightweight Python 3 collector managed by systemd.
+- No additional ports, external telemetry, Docker, or compilation required.
 
-## Requisitos
+## Requirements
 
-- Proxmox VE 9.x (desenvolvido para a estrutura do PVE 9.3.1; outras versões precisam passar pela verificação de compatibilidade).
-- Acesso `root` diretamente ao host Proxmox, não dentro de um LXC ou VM.
-- Python 3, Perl, systemd e utilitários padrão do Debian.
-- Driver NVIDIA funcional e `nvidia-smi` para as métricas da GPU (opcional).
-- Acesso SSH ou console para recuperação, se necessário.
+- Proxmox VE 9.x (developed for the PVE 9.3.1 structure; other versions must pass the compatibility check).
+- `root` access directly on the Proxmox host, not inside an LXC container or VM.
+- Python 3, Perl, systemd, and standard Debian utilities.
+- A working NVIDIA driver and `nvidia-smi` for GPU metrics (optional).
+- SSH or console access for recovery, if needed.
 
 > [!WARNING]
-> Esta é uma extensão não oficial que modifica arquivos internos do Proxmox. Execute a instalação em uma janela de manutenção, sem restaurações, backups ou migrações em andamento. O instalador pode reiniciar serviços de gerenciamento e interromper temporariamente a interface web e consoles. Não solicita reboot do host nem desligamento de VMs/LXCs.
+> This is an unofficial extension that modifies internal Proxmox files. Perform the installation during a maintenance window, with no restores, backups, or migrations in progress. The installer may restart management services and temporarily interrupt the web interface and console sessions. It does not request a host reboot or shut down VMs or LXC containers.
 
-## Instalação
+## Installation
 
-### Método recomendado — baixar e verificar antes de executar
+### Recommended method — download and review before running
 
-No terminal do host Proxmox:
+On the Proxmox host terminal:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/main/install.sh -o /tmp/phm-install.sh
 ```
 
-Confira a procedência e revise o instalador antes de executá-lo como root. Depois:
+Verify the source and review the installer before running it as root. Then:
 
 ```bash
 bash /tmp/phm-install.sh check
 bash /tmp/phm-install.sh
 ```
 
-### Instalação rápida via GitHub Raw
+### Quick installation via GitHub Raw
 
-Use apenas se confiar no conteúdo publicado no repositório:
+Only use this method if you trust the content published in the repository:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/main/install.sh | bash
 ```
 
-O instalador atual é autossuficiente: contém um payload compactado gerado a partir dos arquivos-fonte do projeto, com verificação de integridade. Essa verificação não autentica a origem do script. Em produção, prefira substituir `main` por uma tag ou SHA de commit revisado.
+The current installer is self-contained: it includes a compressed payload generated from the project's source files, with an integrity check. This check does not authenticate the script's origin. In production, prefer replacing `main` with a reviewed release tag or commit SHA.
 
-### Instalação local
+### Local installation
 
-Se preferir clonar o projeto (requer Git):
+If you prefer to clone the project (requires Git):
 
 ```bash
 git clone https://github.com/BlackMix/pve-cpu--gpu-memory-modern-monitor.git
@@ -107,13 +107,13 @@ bash install.sh check
 bash install.sh
 ```
 
-### Após instalar
+### After installation
 
-Acesse o nó desejado na interface web do Proxmox e abra **Summary**. Atualize a página ignorando o cache do navegador: `Ctrl + Shift + R` no Windows/Linux ou `Command + Shift + R` no macOS.
+Select the desired node in the Proxmox web interface and open **Summary**. Perform a hard refresh to bypass the browser cache: `Ctrl + Shift + R` on Windows/Linux or `Command + Shift + R` on macOS.
 
-## Atualização
+## Updating
 
-O mesmo comando de instalação atualiza versões anteriores. Não é necessário desinstalar antes nem executar os fixes v0.1.2 e v0.1.3 separadamente.
+The same installation command updates previous versions. There is no need to uninstall first or apply the v0.1.2 and v0.1.3 fixes separately.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/main/install.sh -o /tmp/phm-install.sh
@@ -121,24 +121,24 @@ bash /tmp/phm-install.sh check
 bash /tmp/phm-install.sh
 ```
 
-O instalador reconhece os blocos JavaScript originais das versões 0.1.0 a 0.1.3 e da versão atual. Modificações desconhecidas são recusadas. Se a API Perl não mudou, os serviços `pvedaemon` e `pveproxy` não são reiniciados. O coletor também não é reiniciado caso seu código, unidade e estado já estejam corretos.
+The installer recognizes the original JavaScript blocks from versions 0.1.0 through 0.1.3, as well as the current version. Unrecognized modifications are rejected. If the Perl API has not changed, the `pvedaemon` and `pveproxy` services are not restarted. The collector is also not restarted if its code, service unit, and state are already correct.
 
-## Gerenciamento
+## Management
 
-Os comandos abaixo utilizam o instalador local baixado anteriormente:
+The following commands use the previously downloaded local installer:
 
-| Comando | Função |
+| Command | Description |
 | --- | --- |
-| `bash /tmp/phm-install.sh --version` | Exibir a versão do instalador |
-| `bash /tmp/phm-install.sh check` | Verificar compatibilidade e segurança da instalação |
-| `bash /tmp/phm-install.sh status` | Consultar estado do plugin |
-| `bash /tmp/phm-install.sh repair` | Reaplicar patches após atualização compatível do PVE |
-| `bash /tmp/phm-install.sh activate` | Recarregar a API mediante verificação prévia dos serviços |
-| `bash /tmp/phm-install.sh uninstall` | Remover o plugin e os blocos reconhecidos |
+| `bash /tmp/phm-install.sh --version` | Display the installer version |
+| `bash /tmp/phm-install.sh check` | Check installation compatibility and safety |
+| `bash /tmp/phm-install.sh status` | Check plugin status |
+| `bash /tmp/phm-install.sh repair` | Reapply patches after a compatible PVE update |
+| `bash /tmp/phm-install.sh activate` | Reload the API after checking the services |
+| `bash /tmp/phm-install.sh uninstall` | Remove the plugin and recognized code blocks |
 
-### Reparar após atualizar o Proxmox
+### Repair after a Proxmox update
 
-Atualizações do Proxmox podem sobrescrever os arquivos modificados. Não há reaplicação automática dos patches. Baixe novamente o instalador e execute:
+Proxmox updates may overwrite modified files. Patches are not reapplied automatically. Download the installer again and run:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/main/install.sh -o /tmp/phm-install.sh
@@ -146,65 +146,65 @@ bash /tmp/phm-install.sh check
 bash /tmp/phm-install.sh repair
 ```
 
-### Desinstalar
+### Uninstallation
 
 ```bash
 bash /tmp/phm-install.sh uninstall
 ```
 
-Ou, se já estiver utilizando o código-fonte local:
+Or, if you are already using the local source code:
 
 ```bash
 bash uninstall.sh
 ```
 
-## Segurança e recuperação
+## Safety and recovery
 
-Antes de reiniciar os serviços de gerenciamento do Proxmox, quando necessário, o instalador verifica tarefas PVE em execução, processos bloqueados em estado `D`, jobs do systemd e estado dos serviços. Essa verificação é conservadora e não elimina a possibilidade de uma tarefa iniciar logo depois.
+Before restarting Proxmox management services, when necessary, the installer checks for running PVE tasks, processes blocked in the `D` state, systemd jobs, and service status. This check is conservative and does not eliminate the possibility of a task starting immediately afterward.
 
-Os backups ficam em `/var/backups/pve-hardware-monitor/`. Em caso de falha, o instalador tenta restaurar os arquivos modificados e o estado do coletor. Se um restart falhar, não tenta reiniciar os serviços repetidamente. Investigue a causa antes de executar `activate`.
+Backups are stored in `/var/backups/pve-hardware-monitor/`. If a failure occurs, the installer attempts to restore the modified files and collector state. If a restart fails, it does not repeatedly attempt to restart the services. Investigate the cause before running `activate`.
 
-Não restaure arquivos internos de uma versão antiga do Proxmox sobre uma versão nova.
+Do not restore internal files from an older Proxmox version over a newer version.
 
-## Diagnóstico
+## Troubleshooting
 
-**Serviço coletor e logs:**
+**Collector service and logs:**
 
 ```bash
 systemctl status pve-hardware-monitor --no-pager
 journalctl -u pve-hardware-monitor -n 50 --no-pager
 ```
 
-**Consultar métricas pela API local:**
+**Retrieve metrics through the local API:**
 
 ```bash
 pvesh get /nodes/$(hostname -s)/hardware-monitor --output-format json-pretty
 ```
 
-O endpoint autenticado `GET /api2/json/nodes/{node}/hardware-monitor` lê o snapshot de métricas em `/run/pve-hardware-monitor/metrics.json`. O arquivo é escrito atomicamente, não contém credenciais e snapshots com mais de 15 segundos são recusados.
+The authenticated `GET /api2/json/nodes/{node}/hardware-monitor` endpoint reads the metrics snapshot from `/run/pve-hardware-monitor/metrics.json`. The file is written atomically, contains no credentials, and snapshots older than 15 seconds are rejected.
 
-**Erro HTTP 501 (Method not implemented):** se o `pvesh` funcionar, mas a API HTTPS retornar 501, os serviços podem estar utilizando a versão antiga do módulo Perl. Verifique primeiro os serviços, o armazenamento e as tarefas pendentes:
+**HTTP 501 error (Method not implemented):** If `pvesh` works but the HTTPS API returns 501, the services may still be using an older version of the Perl module. Check the services, storage, and pending tasks first:
 
 ```bash
 systemctl status pvedaemon pveproxy --no-pager
 systemctl list-jobs
 ```
 
-Somente quando o host estiver saudável e sem tarefas em andamento, utilize `bash /tmp/phm-install.sh activate`. A atualização exclusivamente visual não exige reiniciar os serviços PVE.
+Only run `bash /tmp/phm-install.sh activate` when the host is healthy and no tasks are in progress. UI-only updates do not require restarting PVE services.
 
-## Arquitetura
+## Architecture
 
 ```mermaid
 flowchart TD
-    UI[Proxmox Summary / ExtJS] --> API[API autenticada do Proxmox]
-    API --> JSON[Snapshot JSON em /run]
-    COL[Coletor Python 3 / systemd] --> JSON
-    COL --> CPU[CPU / proc e sysfs]
-    COL --> RAM[Memória / proc/meminfo]
+    UI[Proxmox Summary / ExtJS] --> API[Authenticated Proxmox API]
+    API --> JSON[JSON snapshot in /run]
+    COL[Python 3 collector / systemd] --> JSON
+    COL --> CPU[CPU / proc and sysfs]
+    COL --> RAM[Memory / proc/meminfo]
     COL --> GPU[GPU / nvidia-smi]
 ```
 
-## Estrutura do projeto
+## Project structure
 
 ```text
 .
@@ -225,9 +225,9 @@ flowchart TD
 └── README.md
 ```
 
-## Desenvolvimento
+## Development
 
-O código-fonte é mantido separadamente do payload embutido em `install.sh`. Ao alterar o código, regenere o instalador antes de publicar:
+The source code is maintained separately from the embedded payload in `install.sh`. When modifying the code, regenerate the installer before publishing:
 
 ```bash
 python3 scripts/build-installer.py
@@ -236,27 +236,27 @@ node --check src/dashboard.js
 bash -n install.sh
 ```
 
-Teste visual opcional (requer Playwright e Chromium em `/usr/bin/chromium`):
+Optional visual test (requires Playwright and Chromium at `/usr/bin/chromium`):
 
 ```bash
 python3 tests/smoke_ui.py
 ```
 
-## Compatibilidade e limitações
+## Compatibility and limitations
 
-O projeto é experimental e não faz parte oficial do Proxmox VE. Os fixes anteriores foram utilizados em um host PVE 9.3.1; o instalador consolidado v0.1.4 ainda não teve sua compatibilidade integral confirmada nesse ambiente. Os testes locais incluem coleta Linux, idempotência, reconhecimento dos patches anteriores, reversão, limites de cores, preflight simulado e renderização em Chromium com ExtJS simulado. Não há garantia de compatibilidade com versões futuras.
+This project is experimental and is not an official part of Proxmox VE. Previous fixes have been used on a PVE 9.3.1 host; the consolidated v0.1.4 installer has not yet been fully validated in that environment. Local tests cover Linux metric collection, idempotency, recognition of previous patches, rollback, color thresholds, simulated preflight checks, and Chromium rendering with simulated ExtJS. Compatibility with future versions is not guaranteed.
 
-Referência técnica: [proxmox/pve-manager](https://github.com/proxmox/pve-manager) (`Summary.js` e `Nodes.pm`). O projeto não depende de PVE-mods.
+Technical reference: [proxmox/pve-manager](https://github.com/proxmox/pve-manager) (`Summary.js` and `Nodes.pm`). The project does not depend on PVE-mods.
 
-## Contribuições
+## Contributing
 
-Sugestões, correções e melhorias são bem-vindas. Ao relatar um problema, inclua a versão do Proxmox (`pveversion -v`), a versão do plugin e os logs relevantes, removendo informações sensíveis.
+Suggestions, fixes, and improvements are welcome. When reporting an issue, include the Proxmox version (`pveversion -v`), the plugin version, and relevant logs, with sensitive information removed.
 
-- [Reportar um problema ou sugerir uma melhoria](https://github.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/issues)
-- [Enviar um pull request](https://github.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/pulls)
+- [Report an issue or suggest an improvement](https://github.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/issues)
+- [Submit a pull request](https://github.com/BlackMix/pve-cpu--gpu-memory-modern-monitor/pulls)
 
 ---
 
-Desenvolvido por [BlackMix / Mix Dev](https://github.com/BlackMix).
+Developed by [BlackMix / Mix Dev](https://github.com/BlackMix).
 
-Se o projeto for útil para você, considere deixar uma ⭐ no [repositório](https://github.com/BlackMix/pve-cpu--gpu-memory-modern-monitor).
+If you find this project useful, consider giving the [repository](https://github.com/BlackMix/pve-cpu--gpu-memory-modern-monitor) a ⭐.
