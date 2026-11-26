@@ -31,6 +31,26 @@ with sync_playwright() as p:
     page.wait_for_timeout(1200)
     assert page.get_by_text('88.0%',exact=True).count()==1
     assert page.locator('.phm').count()==1
+    # GPU gradients remain full-width, clipped at the measured percentage.
+    gpu=page.locator('.phm-gpu-card')
+    assert gpu.locator('.phm-heat-fill').count()==4
+    bar=gpu.locator('[aria-label="GPU Usage"] .phm-heat-fill')
+    assert bar.evaluate('e=>e.style.getPropertyValue("--phm-load")')=='12%'
+    assert bar.evaluate('e=>e.offsetWidth === e.parentElement.clientWidth')
+    for load in (10,40,70,97):
+        page.evaluate('(v)=>{sample.gpus[0].usage=v;sample.gpus[0].vram_used=sample.gpus[0].vram_total*v/100;sample.gpu_timestamp++}',load)
+        page.wait_for_function('''(v)=>document.querySelector('.phm-gpu-card [aria-label="GPU Usage"]').getAttribute("aria-valuenow")===String(v)''',arg=load)
+        assert bar.evaluate('e=>e.style.getPropertyValue("--phm-load")')==f'{load}%'
+    stops=gpu.locator('linearGradient stop').evaluate_all('stops=>stops.map(s=>[s.getAttribute("offset"),s.getAttribute("stop-color")])')
+    assert stops==[['0%','#45a66c'],['29%','#45a66c'],['30%','#e4c246'],['54%','#e4c246'],['55%','#f08a32'],['89%','#f08a32'],['90%','#e05252'],['100%','#e05252']],stops
+    assert gpu.locator('linearGradient').get_attribute('gradientUnits')=='userSpaceOnUse'
+    assert gpu.locator('polyline').get_attribute('stroke').startswith('url(#phm-heat-')
+    pts=gpu.locator('polyline').get_attribute('points').split()
+    assert [float(pt.split(',')[1]) for pt in pts[-4:]]==[27.2,18.8,10.4,2.84],pts
+    page.evaluate('()=>{sample.gpus[0].usage=null;sample.gpus[0].temp=null;sample.gpu_timestamp++}')
+    page.wait_for_function('''document.querySelector('.phm-gpu-card [aria-label="GPU Usage"]').getAttribute("aria-valuetext")==="Unavailable"''')
+    assert bar.evaluate('e=>e.style.getPropertyValue("--phm-load")')=='0%'
+    page.wait_for_function('window.panel.getHeight() >= document.querySelector(".phm").scrollHeight')
     page.evaluate('window.panel.events.destroy()')
     assert not errors,errors
     browser.close()
